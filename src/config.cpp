@@ -884,6 +884,11 @@ namespace config {
     true,  // client gamepads with touchpads are emulated as DS4
     true,  // ds5_inputtino_randomize_mac
 
+    "none",  // paddle_l4_remap
+    "none",  // paddle_r4_remap
+    "none",  // paddle_l5_remap
+    "none",  // paddle_r5_remap
+
     true,  // keyboard enabled
     true,  // mouse enabled
     true,  // controller enabled
@@ -1763,6 +1768,18 @@ namespace config {
     bool_f(vars, "motion_as_ds4", input.motion_as_ds4);
     bool_f(vars, "touchpad_as_ds4", input.touchpad_as_ds4);
 
+    static const std::vector<std::string_view> paddle_remap_opts {
+      "none"sv, "a"sv, "b"sv, "x"sv, "y"sv,
+      "back"sv, "start"sv, "guide"sv,
+      "lthumb"sv, "rthumb"sv,
+      "lshoulder"sv, "rshoulder"sv,
+      "dpad_up"sv, "dpad_down"sv, "dpad_left"sv, "dpad_right"sv,
+    };
+    string_restricted_f(vars, "paddle_l4_remap"s, input.paddle_l4_remap, paddle_remap_opts);
+    string_restricted_f(vars, "paddle_r4_remap"s, input.paddle_r4_remap, paddle_remap_opts);
+    string_restricted_f(vars, "paddle_l5_remap"s, input.paddle_l5_remap, paddle_remap_opts);
+    string_restricted_f(vars, "paddle_r5_remap"s, input.paddle_r5_remap, paddle_remap_opts);
+
     bool_f(vars, "mouse", input.mouse);
     bool_f(vars, "keyboard", input.keyboard);
     bool_f(vars, "controller", input.controller);
@@ -2097,6 +2114,10 @@ namespace config {
         "ds4_back_as_touchpad_click",
         "motion_as_ds4",
         "touchpad_as_ds4",
+        "paddle_l4_remap",
+        "paddle_r4_remap",
+        "paddle_l5_remap",
+        "paddle_r5_remap",
         "back_button_timeout",
         "keyboard",
         "key_repeat_delay",
