@@ -1,0 +1,79 @@
+---
+# Fork-only: build Windows artifacts on every push to feat/** and master,
+# plus on demand via workflow_dispatch. Calls the existing workflow_call
+# entry point in ci-windows.yml. Artifacts land in the Actions run and
+# (for tags starting with v) are uploaded to a GitHub release.
+name: Fork Build (Windows)
+
+permissions:
+  contents: write  # needed for release upload on tag
+
+on:
+  push:
+    branches:
+      - master
+      - "feat/**"
+      - "feature/**"
+      - "fix/**"
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: "Release version (e.g. 7.1.432.1)"
+        required: false
+        default: "0.0.0.0"
+
+jobs:
+  resolve_version:
+    name: Resolve Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      commit: ${{ steps.v.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: v
+        shell: bash
+        run: |
+          commit="${GITHUB_SHA}"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version="${GITHUB_REF#refs/tags/v}"
+          elif [[ -n "${{ github.event.inputs.release_version }}" ]]; then
+            version="${{ github.event.inputs.release_version }}"
+          else
+            version="0.0.0-$(git rev-parse --short=8 "$commit")"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+  windows:
+    name: Build Windows
+    needs: resolve_version
+    uses: ./.github/workflows/ci-windows.yml
+    with:
+      release_commit: ${{ needs.resolve_version.outputs.commit }}
+      release_version: ${{ needs.resolve_version.outputs.version }}
+    secrets: inherit
+
+  release:
+    name: Publish Release (tag only)
+    needs: [resolve_version, windows]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: build-*
+          path: artifacts
+          merge-multiple: true
+      - name: Create / update release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          files: artifacts/**/*
+          generate_release_notes: true
