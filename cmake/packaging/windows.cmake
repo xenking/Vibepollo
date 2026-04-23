@@ -38,32 +38,69 @@ if (TARGET sunshine_display_helper)
 endif()
 install(FILES "${CMAKE_BINARY_DIR}/uninstall.exe" DESTINATION "." COMPONENT application)
 
-# Drivers (SudoVDA virtual display)
+# Drivers (SudoVDA virtual display).
+#
+# The SudoVDA binary artifacts (SudoVDA.dll, sudovda.cat, sudovda.cer,
+# nefconc.exe) are NOT committed to the repository. Upstream Nonary/Vibepollo
+# builds releases with these files present on the maintainer's machine;
+# GitHub CI has no route to obtain them. This fork relaxes the check so the
+# Windows installer can be built without SudoVDA: users who need it install
+# it via the existing Apollo installer (the driver is identical and stays
+# loaded across Vibepollo upgrades).
+#
+# Gate: set -DVIBEPOLLO_BUNDLE_SUDOVDA=ON at configure time to re-enable the
+# strict check and include the driver in the installer. Defaults to OFF.
+option(VIBEPOLLO_BUNDLE_SUDOVDA
+       "Bundle the SudoVDA virtual-display driver in the Windows installer"
+       OFF)
+
 set(SUDOVDA_SOURCE_DIR "${SUNSHINE_SOURCE_ASSETS_DIR}/windows/drivers/sudovda")
-set(SUDOVDA_DRIVER_FILES
+set(SUDOVDA_DRIVER_FILES_REQUIRED
     "${SUDOVDA_SOURCE_DIR}/install.ps1"
     "${SUDOVDA_SOURCE_DIR}/uninstall.bat"
     "${SUDOVDA_SOURCE_DIR}/SudoVDA.inf"
+    "${SUDOVDA_SOURCE_DIR}/sudovda.cer"
+)
+# Optional binary artifacts (not committed to repo, present only when
+# Nonary-style local builds include them).
+set(SUDOVDA_DRIVER_FILES_OPTIONAL
     "${SUDOVDA_SOURCE_DIR}/SudoVDA.dll"
     "${SUDOVDA_SOURCE_DIR}/sudovda.cat"
-    "${SUDOVDA_SOURCE_DIR}/sudovda.cer"
     "${SUDOVDA_SOURCE_DIR}/nefconc.exe"
 )
 
-foreach(_sudovda_file IN LISTS SUDOVDA_DRIVER_FILES)
-    if (NOT EXISTS "${_sudovda_file}")
-        message(FATAL_ERROR "Required SudoVDA driver artifact missing: ${_sudovda_file}")
-    endif()
-    file(SIZE "${_sudovda_file}" _sudovda_file_size)
-    if (_sudovda_file_size EQUAL 0)
-        message(FATAL_ERROR "Required SudoVDA driver artifact is empty (0 bytes): ${_sudovda_file}")
-    endif()
-endforeach()
-unset(_sudovda_file_size)
+if (VIBEPOLLO_BUNDLE_SUDOVDA)
+    set(SUDOVDA_DRIVER_FILES ${SUDOVDA_DRIVER_FILES_REQUIRED} ${SUDOVDA_DRIVER_FILES_OPTIONAL})
+    foreach(_sudovda_file IN LISTS SUDOVDA_DRIVER_FILES)
+        if (NOT EXISTS "${_sudovda_file}")
+            message(FATAL_ERROR "Required SudoVDA driver artifact missing: ${_sudovda_file}")
+        endif()
+        file(SIZE "${_sudovda_file}" _sudovda_file_size)
+        if (_sudovda_file_size EQUAL 0)
+            message(FATAL_ERROR "Required SudoVDA driver artifact is empty (0 bytes): ${_sudovda_file}")
+        endif()
+    endforeach()
+    unset(_sudovda_file_size)
 
-install(FILES ${SUDOVDA_DRIVER_FILES}
-        DESTINATION "drivers/sudovda"
-        COMPONENT sudovda)
+    install(FILES ${SUDOVDA_DRIVER_FILES}
+            DESTINATION "drivers/sudovda"
+            COMPONENT sudovda)
+else()
+    message(STATUS "VIBEPOLLO_BUNDLE_SUDOVDA=OFF: building without the "
+                   "SudoVDA driver. Install it separately via Apollo if "
+                   "virtual-display functionality is needed.")
+    set(SUDOVDA_DRIVER_FILES ${SUDOVDA_DRIVER_FILES_REQUIRED})
+    foreach(_sudovda_file IN LISTS SUDOVDA_DRIVER_FILES)
+        if (EXISTS "${_sudovda_file}")
+            list(APPEND SUDOVDA_DRIVER_FILES_PRESENT "${_sudovda_file}")
+        endif()
+    endforeach()
+    if (SUDOVDA_DRIVER_FILES_PRESENT)
+        install(FILES ${SUDOVDA_DRIVER_FILES_PRESENT}
+                DESTINATION "drivers/sudovda"
+                COMPONENT sudovda)
+    endif()
+endif()
 
 # Mandatory scripts
 install(DIRECTORY "${SUNSHINE_SOURCE_ASSETS_DIR}/windows/misc/service/"
@@ -147,7 +184,11 @@ set(CPACK_COMPONENT_ASSETS_REQUIRED true)
 set(CPACK_COMPONENT_SUDOVDA_DISPLAY_NAME "SudoVDA")
 set(CPACK_COMPONENT_SUDOVDA_DESCRIPTION "Driver required for Virtual Display to function.")
 set(CPACK_COMPONENT_SUDOVDA_GROUP "Drivers")
-set(CPACK_COMPONENT_SUDOVDA_REQUIRED true)
+if (VIBEPOLLO_BUNDLE_SUDOVDA)
+    set(CPACK_COMPONENT_SUDOVDA_REQUIRED true)
+else()
+    set(CPACK_COMPONENT_SUDOVDA_REQUIRED false)
+endif()
 
 # audio tool
 set(CPACK_COMPONENT_AUDIO_DISPLAY_NAME "audio-info")
