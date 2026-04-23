@@ -1262,6 +1262,58 @@ namespace platf {
   }
 
   /**
+   * @brief Resolves a config-driven paddle remap name to an XUSB_BUTTON bitmask.
+   *        Returns 0 for "none" or unrecognized names.
+   */
+  static int paddle_remap_to_xusb(const std::string &name) {
+    if (name.empty() || name == "none") {
+      return 0;
+    }
+    if (name == "a") return XUSB_GAMEPAD_A;
+    if (name == "b") return XUSB_GAMEPAD_B;
+    if (name == "x") return XUSB_GAMEPAD_X;
+    if (name == "y") return XUSB_GAMEPAD_Y;
+    if (name == "back") return XUSB_GAMEPAD_BACK;
+    if (name == "start") return XUSB_GAMEPAD_START;
+    if (name == "guide") return XUSB_GAMEPAD_GUIDE;
+    if (name == "lthumb") return XUSB_GAMEPAD_LEFT_THUMB;
+    if (name == "rthumb") return XUSB_GAMEPAD_RIGHT_THUMB;
+    if (name == "lshoulder") return XUSB_GAMEPAD_LEFT_SHOULDER;
+    if (name == "rshoulder") return XUSB_GAMEPAD_RIGHT_SHOULDER;
+    if (name == "dpad_up") return XUSB_GAMEPAD_DPAD_UP;
+    if (name == "dpad_down") return XUSB_GAMEPAD_DPAD_DOWN;
+    if (name == "dpad_left") return XUSB_GAMEPAD_DPAD_LEFT;
+    if (name == "dpad_right") return XUSB_GAMEPAD_DPAD_RIGHT;
+    return 0;
+  }
+
+  /**
+   * @brief Resolves a config-driven paddle remap name to a DS4_BUTTONS bitmask.
+   *        Names are XInput-style and are translated to DS4 equivalents
+   *        (back->share, start->options, guide->PS, a/b/x/y->cross/circle/square/triangle).
+   *        Returns 0 for "none" or unrecognized names.
+   */
+  static int paddle_remap_to_ds4(const std::string &name) {
+    if (name.empty() || name == "none") {
+      return 0;
+    }
+    if (name == "a") return DS4_BUTTON_CROSS;
+    if (name == "b") return DS4_BUTTON_CIRCLE;
+    if (name == "x") return DS4_BUTTON_SQUARE;
+    if (name == "y") return DS4_BUTTON_TRIANGLE;
+    if (name == "back") return DS4_BUTTON_SHARE;
+    if (name == "start") return DS4_BUTTON_OPTIONS;
+    if (name == "lthumb") return DS4_BUTTON_THUMB_LEFT;
+    if (name == "rthumb") return DS4_BUTTON_THUMB_RIGHT;
+    if (name == "lshoulder") return DS4_BUTTON_SHOULDER_LEFT;
+    if (name == "rshoulder") return DS4_BUTTON_SHOULDER_RIGHT;
+    // guide / dpad_* have no plain DS4_BUTTONS slot (guide is special, dpad is
+    // a 4-state enum) — drop silently; config validator still allows them so
+    // x360 emulation keeps working when DS4 is swapped in.
+    return 0;
+  }
+
+  /**
    * @brief Converts the standard button flags into X360 format.
    * @param gamepad_state The gamepad button/axis state sent from the client.
    * @return XUSB_BUTTON flags.
@@ -1315,6 +1367,13 @@ namespace platf {
     if (flags & Y) {
       buttons |= XUSB_GAMEPAD_Y;
     }
+
+    // Additive paddle remap: OR the configured XUSB button in when the paddle
+    // is pressed. Physical buttons still work normally when pressed directly.
+    if (flags & PADDLE1) buttons |= paddle_remap_to_xusb(config::input.paddle_l4_remap);
+    if (flags & PADDLE2) buttons |= paddle_remap_to_xusb(config::input.paddle_r4_remap);
+    if (flags & PADDLE3) buttons |= paddle_remap_to_xusb(config::input.paddle_l5_remap);
+    if (flags & PADDLE4) buttons |= paddle_remap_to_xusb(config::input.paddle_r5_remap);
 
     return (XUSB_BUTTON) buttons;
   }
@@ -1415,6 +1474,13 @@ namespace platf {
     if (gamepad_state.rt > 0) {
       buttons |= DS4_BUTTON_TRIGGER_RIGHT;
     }
+
+    // Additive paddle remap: OR the DS4 equivalent of the configured XUSB
+    // button name in when the paddle is pressed.
+    if (flags & PADDLE1) buttons |= paddle_remap_to_ds4(config::input.paddle_l4_remap);
+    if (flags & PADDLE2) buttons |= paddle_remap_to_ds4(config::input.paddle_r4_remap);
+    if (flags & PADDLE3) buttons |= paddle_remap_to_ds4(config::input.paddle_l5_remap);
+    if (flags & PADDLE4) buttons |= paddle_remap_to_ds4(config::input.paddle_r5_remap);
 
     return (DS4_BUTTONS) buttons;
   }

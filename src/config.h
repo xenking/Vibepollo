@@ -243,6 +243,18 @@ namespace config {
     // to avoid client-side config mixing when controllers are swapped.
     bool ds5_inputtino_randomize_mac;
 
+    // Remap of client-side paddle buttons (PADDLE1..PADDLE4, i.e. Xbox Elite /
+    // DualSense Edge / Steam Deck L4/R4/L5/R5) onto emulated virtual-pad
+    // buttons on the host. Accepted values: "none" (default, drop the paddle),
+    // "a", "b", "x", "y", "back", "start", "guide", "lthumb", "rthumb",
+    // "lshoulder", "rshoulder", "dpad_up", "dpad_down", "dpad_left",
+    // "dpad_right". Mapping is additive (OR into the target button bit) so
+    // the underlying physical button still works when pressed directly.
+    std::string paddle_l4_remap;
+    std::string paddle_r4_remap;
+    std::string paddle_l5_remap;
+    std::string paddle_r5_remap;
+
     bool keyboard;
     bool mouse;
     bool controller;
